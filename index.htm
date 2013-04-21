@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+	<title>jquery.video-frame-animation.js demo page</title>
+	<link rel="stylesheet" href="css/style.css" />
+	<script type="text/javascript" src="js/jquery-1.9.1.min.js"></script>
+	<script type="text/javascript" src="js/jquery.video-frame-animation.js"></script>
+	<script type="text/javascript">
+	$(function () {
+		$('#imgWrapper, #imgWrapper2').videoFrameAnimation({
+			numImages: 500,
+			imgDir: 'videoframes/',
+			imgName: '1023040',
+			upgradeHighRes: true,
+			imgDirBig: 'videoframes_big/'
+		});
+	});
+	</script>
+</head>
+<body>
+	<div id="imgWrapper"></div>
+	<div id="imgWrapper2"></div>
+</body>
+</html>

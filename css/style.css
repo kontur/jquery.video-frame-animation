@@ -1,0 +1,25 @@
+html,
+body {
+  height: 5000px;
+}
+#imgWrapper,
+#imgWrapper2 {
+  height: auto;
+  position: fixed;
+  width: 100%;
+  display: block;
+  top: 0;
+  left: 0;
+}
+#imgWrapper img,
+#imgWrapper2 img {
+  border: 10px solid blue;
+  display: block;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+#imgWrapper2 {
+  top: 600px;
+}
