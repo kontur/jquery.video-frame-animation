@@ -53,7 +53,8 @@
 		'imgFormat'		 : '.jpg',
 		'upgradeHighRes' : false,
 		'imgDirBig' 	 : '',
-		'requestAnimationFramePolyfill' : true
+		'requestAnimationFramePolyfill' : true,
+		'buffer'         : 10
 	};
 
 	// some required init object attributes
@@ -116,15 +117,14 @@
 		// setup animation:
 
 		// append frames as img objects
-		for (i = 1; i <= settings.numImages; i++) {
-			$this.append('<img src="' + settings.imgDir + settings.imgName + 
-				numWithLeadingZeros(i) + settings.imgFormat +'" data-frame="' + i + 
-				'" style="display: none;" />');
+		for (i = 1; i <= Math.min(settings.buffer, settings.numImages); i++) {
+			console.log(i);
+			$this.append(generateImg(i));
 		}
 
 		// show current frame
 		currentImg = calculateCurrent();
-		showFrame(currentImg);
+		showFrameWhenReady(currentImg);
 		upgradeFrame(currentImg);
 
 		$(window).on('scroll', scroll);
@@ -132,6 +132,12 @@
 		// return this object to maintain chainability
 		return this.each(function () { return $(this); });
 
+	}
+
+	var generateImg = function (i) {
+		return '<img src="' + settings.imgDir + settings.imgName + 
+				numWithLeadingZeros(i) + settings.imgFormat +'" data-frame="' + i + 
+				'" style="display: none;" />';
 	}
 
 
@@ -190,7 +196,7 @@
 			var cur = calculateCurrent();
 			if (cur != currentImg) {
 				currentImg = cur;
-				showFrame(currentImg);
+				showFrameWhenReady(currentImg);
 				
 			}
 			requestAnimationFrame(animate);
@@ -199,11 +205,84 @@
 
 
 	/**
-	 * show the image containing the supplied frame
+	 * show the image containing the supplied frame and load and insert that
+	 * frame first, if it is not yet loaded
+	 */
+	var showFrameWhenReady = function (frame) {
+
+		// check if the frame requested is present in the DOM
+		if ($this.children('img[data-frame="' + frame + '"]').length == 0) {
+			// add requested frame and wait for it to load before doing anything
+			// else
+			$this.append(generateImg(frame));
+			$this.imagesLoaded(function () {
+				// once the frame is loaded, proceed with buffering surrounding
+				// images
+				showFrame(frame);
+			});
+		} else {
+			showFrame(frame);
+		}
+
+	}
+
+
+	/**
+	 * helper to show a particular frame
 	 */
 	var showFrame = function (frame) {
+
+		// hide other frame
 		$this.children().hide();
-		$this.children('img[data-frame="' + frame + '"]').show();
+
+		// show the img for this frame
+		$this.children('img[data-frame="' + frame + '"]').show();			
+		bufferFromFrame(frame);
+	
+	}
+
+
+	/**
+	 * given a frame, this function buffers frames before and after
+	 * so they are ready for animation
+	 *
+	 * TODO: detect animation direction and buffer with bias to that
+	 * direction
+	 */
+	var bufferFromFrame = function (frame) {
+
+		// remove imgs from the DOM that are outside the range of the buffer
+		// setting
+		$this.children('img').each(function () {
+			if ($(this).data('frame') < frame - settings.buffer || 
+				$(this).data('frame') > frame + settings.buffer) 
+			{
+				$(this).remove();
+			}
+		});
+
+
+		// whenever there is room in the buffer try to append previous or next
+		// images
+		if ($this.children('img').length < settings.buffer * 2) {
+
+			// start from frame - buffer and loop to frame + buffer
+			for (var i = -settings.buffer; i < settings.buffer; i++) {
+
+				var frameToBuffer = frame + i;
+
+				// if the particular frame in buffer range is not yet in the DOM
+				// and is an actual frame of the clip, generate an img element for
+				// that frame
+				if ($this.children('img[data-frame="' + frameToBuffer + '"]').length == 0 &&
+					frameToBuffer > 0 &&
+					frameToBuffer <= settings.numImages) 
+				{
+					$this.append(generateImg(frameToBuffer));
+				}
+			}
+		}
+
 	}
 
 
@@ -267,7 +346,7 @@
 	 * publicly exposed methods
 	 */
 	var methods = {
-		showFrame: showFrame,
+		showFrameWhenReady: showFrameWhenReady,
 		upgradeFrame: upgradeFrame
 	};
 
