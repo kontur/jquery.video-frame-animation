@@ -1,5 +1,5 @@
-jquery.video-frame-animation
-============================
+jquery.video-frame-animation (v0.0.2)
+=====================================
 
 jQuery plugin for animating a video frame sequence based on scroll position
 
@@ -7,15 +7,13 @@ jQuery plugin for animating a video frame sequence based on scroll position
 WIP
 ===
 
-Basic animation demo working, but without preloading
+This plugin is still a work in progress. Use as-is and without any warranty.
+Development contributions are welcome.
 
 
 TODO's / Feature wish list
 ==========================
 
-- limited img elements in the DOM, buffering by creating <img> elements only
-  x frames ahead (currently the plugin just creates a <img> element for every 
-  frame supplied)
 - decoupling from window scroll event -> implementing custom function
   listener that can define the 0-100% frames animation range in any
   way
