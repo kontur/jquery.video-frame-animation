@@ -4,9 +4,17 @@
  * ===============================
  * jQuery plugin for animating a video frame sequence based on scroll position
  *
+ * For more information and latest code see:
+ * https://github.com/johannesneumeier/jquery.video-frame-animation
  *
- * Copyright 2013 Johannes "kontur" Neumeier
  *
+ * @author Johannes "kontur" Neumeier
+ * @version 0.0.2
+ * @copyright 2013 Johannes "kontur" Neumeier
+ *
+ *
+ * License
+ * =======
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,25 +27,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- *
- * @author Johannes "kontur" Neumeier
- * @version 0.0.2
- *
  * 
  * TODO's / Feature wish list
+ * ==========================
  * - decoupling from window scroll event -> implementing custom function
  *   listener that can define the 0-100% frames animation range in any
  *   way
  * - methods for playing the animation (back and forth) programmatically
- * - proper preloading / forced or dynamic preloading switch
  * - smoother transition to high resolution images
  * - implement events for: preloading, scrolling, scrolling finished, 
  *   high resolution image loaded, etc.
- * - dynamic prefetching of high resolution images when low resolution
- *   images are all loaded
  *
- * Fractal demo video clip from archive.org:
- * http://ia600401.us.archive.org/14/items/fractalswithsound/102304.mpeg
+ *
+ * Credits
+ * =======
+ * - Fractal demo video clip from archive.org:
+ *   http://ia600401.us.archive.org/14/items/fractalswithsound/102304.mpeg
+ * - requestAnimationFrame polyfill:
+ *   http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+ * - Array.remove polyfill, John Resig
  *
  */
 (function ($) {
@@ -59,9 +67,13 @@
         'imgDirBig' : '',
 
         // how many frames ahead and before should be buffered in the DOM 
+        // switching of high res images is more render intense and might 
+        // require a higher buffer for smooth animation
         'buffer' : 10,
 
-        // allow preloading beyond the buffer size
+        // allow preloading beyond just the buffer size
+        // if upgradeHighRes flag is set, this also preloads highres images
+        // once all lowres images are loaded
         'preload' : false,
 
         // insert a requestAnimationFrame polyfill
@@ -72,8 +84,15 @@
 
     // some required init object attributes
     var required = [
+        // the amount of image frames in the animation
         'numImages', 
+
+        // what direction the (low res) frames are in
         'imgDir', 
+
+        // the base name without the zerofilled framenumber
+        // so for example if the first frame of the animation is 'foobar-001.jpg'
+        // the imgName should be 'foobar-'
         'imgName'
     ];
 
@@ -95,6 +114,7 @@
         // collection of preloaded frames
         preloaded      = [],
         allPreloaded   = false,
+        preloadedBig   = [],
 
         // helpers to determine when animation stops
         // last image before checking timeout
@@ -174,12 +194,8 @@
         $(window).on('scroll', scroll);
 
 
-
-
-
         // return this object to maintain chainability
         return this.each(function () { return $(this); });
-
     }
 
 
@@ -192,42 +208,51 @@
     var preload = function () {
 
         //console.log('preload(), animating: ' + animating + ', buffering: ' + buffering);
-        if (settings.preload === true &&
-            preloaded.length < settings.numImages) 
-        {
-        
-            if (!animating && !buffering) {
-                // preload
-                //console.log('preloading next image');
-                var image = new Image();
-
-                console.log(preloaded.length + ' images preloaded');
-                //console.log(preloaded);
-
-                // TODO loop through all images and check if they are loaded, but
-                // load frames closest to the current
-                for (var i = 1; i <= settings.numImages; i++) {
-                    if (preloaded.indexOf(i) === -1) {              
-
-                        image.onLoad = onImagePreloaded(i);
-
-                        image.src =  settings.imgDir + settings.imgName + 
-                        zerofill(i) + settings.imgFormat;    
-
-                        return;
-                    }
+        if (settings.preload === true) {
+            if (preloaded.length < settings.numImages) {
+                return preloadNext(1);
+            } else if (preloaded.length >= settings.numImages && !allPreloaded) {
+                allPreloaded = true;
+                if (typeof settings.onPreloaded === 'function') {
+                    settings.onPreloaded();
                 }
+                //console.log('preloaed all low res');
+                preload();
+            } else if (allPreloaded === true && preloadedBig.length < settings.numImages) {
+                return preloadNext(2);
             } else {
-                console.log('preloading to do, but animating or buffering already');
+                //console.log('preloaded all low res and highres');
+                return true;
             }
-        } else if (settings.preload === true &&
-            preloaded.length >= settings.numImages &&
-            !allPreloaded)
-        {
-            allPreloaded = true;
-            if (typeof settings.onPreloaded === 'function') {
-                settings.onPreloaded();
+        }
+    }
+
+
+    /**
+     * helper that loops through the array of preloaded images and 
+     * starts preloading the next not yet loaded image
+     */
+    var preloadNext = function (type) {
+
+        if (!animating && !buffering) {
+            // preload
+            var image = new Image();
+
+            // TODO loop through all images and check if they are loaded, but
+            // load frames closest to the current
+            for (var i = 1; i <= settings.numImages; i++) {
+                if (type === 1 && preloaded.indexOf(i) === -1 ||
+                    type === 2 && preloadedBig.indexOf(i) === - 1) 
+                {
+                    image.onLoad = onImagePreloaded(i, type);
+                    image.src = (type === 1 ? settings.imgDir : settings.imgDirBig) + 
+                        settings.imgName + zerofill(i) + settings.imgFormat;
+                    return;
+                }
             }
+        } else {
+            //console.log('preloading to do, but animating or buffering already');
+            return;
         }
     }
 
@@ -236,8 +261,17 @@
      * helper to register a frame as preloaded 
      */
     var markAsPreloaded = function (frame) {
+
         if (preloaded.indexOf(frame) === -1) {
             preloaded.push(frame);
+        }
+    }
+
+
+    var markBigAsPreloaded = function (frame) {
+
+        if (preloadedBig.indexOf(frame) === -1) {
+            preloadedBig.push(frame);
         }
     }
 
@@ -245,11 +279,14 @@
     /** 
      * callback after an image has successfully preloaded
      */
-    var onImagePreloaded = function (id) {
-        console.log('onImagePreloaded(' + id + ')');
-        markAsPreloaded(id);
-        setTimeout(preload, 10);
-        //preload();
+    var onImagePreloaded = function (id, type) {
+
+        if (type === 1) {
+            markAsPreloaded(id);
+        } else if (type === 2) {
+            markBigAsPreloaded(id);
+        }
+        setTimeout(preload, 5);
     }
 
 
@@ -257,7 +294,8 @@
      * helper to generate the image tag for given id
      */
     var generateImg = function (id, highres) {
-        if (highres === true) {
+
+        if (highres === true || preloadedBig.indexOf(id) !== -1) {
             return '<img src="' + settings.imgDirBig + settings.imgName + 
                     zerofill(id) + settings.imgFormat +'" data-frame="' + id + 
                     '" data-upgraded="1" style="display: none;" />';
@@ -277,9 +315,12 @@
     var scroll = function () {
         if (!animating) {
             animating = true;
-            lastCurrentImg = currentImg;
             animate();
         }
+        // set a reference to the image that is shown right now and 
+        // after the timeout check if it changed, in which case it gets
+        // upgraded if so set up
+        lastCurrentImg = currentImg;
         clearTimeout(checkForScrollTimeout);
         checkForScrollTimeout = setTimeout(checkForScroll, checkForScrollAfter);
     }
@@ -289,15 +330,17 @@
      * detect if a user is continuing to scroll or if scrolling has stopped 
      */
     var checkForScroll = function () {
+
         if (lastCurrentImg == currentImg) {
             animating = false;
-            preload();
 
             // if scrolling has stopped and high res images are supplied, replace
             // the current low res version
             if (settings.upgradeHighRes === true) {
                 upgradeFrame(currentImg);
             }
+
+            preload();
         }
     }
 
@@ -331,7 +374,7 @@
 
     /**
      * start and run the animation loop as long as the 
-     * "animating" flag stays true 
+     * animating flag stays true 
      */
     var animate = function () {
         if (animating) {
@@ -359,6 +402,7 @@
             // add requested frame and wait for it to load before doing anything
             // else
             buffering = true;
+
             $this.append(generateImg(frame));
             $this.imagesLoaded(function () {
                 // once the frame is loaded, proceed with buffering surrounding
@@ -440,11 +484,7 @@
         }
 
         buffering = false;
-
-        //console.log('bufferFromFrame(), added: ' + added);
-
         preload();
-
     }
 
 
@@ -453,6 +493,7 @@
      * upgrade the current frame's image to a higher resolution version
      */
     var upgradeFrame = function (frame) {
+
         $frame = $this.children('img[data-frame="' + frame + '"]');
 
         // check that the image tag holding the frame has not been marked as upgraded 
@@ -471,13 +512,15 @@
                 $frame.next('img').show();
                 $frame.remove();
                 $upgradeWrapper.empty();
+
+                markBigAsPreloaded(frame);
             });
         }
     }
 
 
     /**
-     * helper function that polyfills and unifies the "requestAnimationFrame" 
+     * helper function that polyfills and unifies the requestAnimationFrame"
      * function for older or inconsistent implementations
      */
     var injectRequestAnimationFolyfill = function () {
@@ -514,7 +557,6 @@
         }());
 
         // end polyfill code
-
     }
 
 
@@ -541,3 +583,53 @@
     };
 
 })(jQuery);
+// end plugin code
+
+
+/**
+ * array functionality polyfills
+ */
+
+// Array Remove - By John Resig (MIT Licensed)
+Array.prototype.remove = function(from, to) {
+  var rest = this.slice((to || from) + 1 || this.length);
+  this.length = from < 0 ? this.length + from : from;
+  return this.push.apply(this, rest);
+};
+
+
+// give older IEs an Array.indexOf method
+if (!Array.prototype.indexOf)
+{
+  Array.prototype.indexOf = function(elt /*, from*/)
+  {
+    var len = this.length >>> 0;
+
+    var from = Number(arguments[1]) || 0;
+    from = (from < 0)
+         ? Math.ceil(from)
+         : Math.floor(from);
+    if (from < 0)
+      from += len;
+
+    for (; from < len; from++)
+    {
+      if (from in this &&
+          this[from] === elt)
+        return from;
+    }
+    return -1;
+  };
+}
+
+
+// prevent breaking things by traces to non existing console
+if (typeof console === 'undefined') {
+    var console = {
+        log : function (str) {
+            // do nothing
+        }
+    }
+}
+
+

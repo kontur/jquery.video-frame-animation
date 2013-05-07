@@ -18,9 +18,6 @@ TODO's / Feature wish list
   listener that can define the 0-100% frames animation range in any
   way
 - methods for playing the animation (back and forth) programmatically
-- proper preloading / forced or dynamic preloading switch
 - smoother transition to high resolution images
 - implement events for: preloading, scrolling, scrolling finished, 
   high resolution image loaded, etc.
-- dynamic prefetching of high resolution images when low resolution
-  images are all loaded
